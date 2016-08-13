@@ -1,0 +1,6 @@
+notMNIST_small/
+notMNIST_large/
+*.tar.gz
+*.pickle
+*.pickle.backup
+
