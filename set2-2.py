@@ -36,6 +36,10 @@ print('Test set', test_dataset.shape, test_labels.shape)
 
 batch_size = 128
 
+# turn the logistic regression example with stoichastic gradient descent into a 1 hidden layer neural network with
+# rectified linear units nn.relu() and 1024 hidden nodes. This model should improve your validation / test accuracy.
+H = 1024 # No. of hidden units
+
 graph = tf.Graph()
 with graph.as_default():
     # Input data. For the training data, we use a placeholder that will be fed
@@ -47,12 +51,17 @@ with graph.as_default():
     tf_test_dataset = tf.constant(test_dataset)
 
     # Variables.
+    hidden_weights = tf.Variable(
+        tf.truncated_normal([image_size * image_size, H]))
+    hidden_biases = tf.Variable(tf.zeros([H]))
     weights = tf.Variable(
-        tf.truncated_normal([image_size * image_size, num_labels]))
+        tf.truncated_normal([H, num_labels]))
     biases = tf.Variable(tf.zeros([num_labels]))
 
     # Training computation.
-    logits = tf.matmul(tf_train_dataset, weights) + biases
+    hidden = tf.nn.relu(tf.matmul(tf_train_dataset, hidden_weights) + hidden_biases)
+    logits = tf.matmul(hidden, weights) + biases
+
     loss = tf.reduce_mean(
         tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels))
 
@@ -61,9 +70,10 @@ with graph.as_default():
 
     # Predictions for the training, validation, and test data.
     train_prediction = tf.nn.softmax(logits)
-    valid_prediction = tf.nn.softmax(
-        tf.matmul(tf_valid_dataset, weights) + biases)
-    test_prediction = tf.nn.softmax(tf.matmul(tf_test_dataset, weights) + biases)
+    valid_hidden = tf.nn.relu(tf.matmul(tf_valid_dataset, hidden_weights) + hidden_biases)
+    valid_prediction = tf.nn.softmax(tf.matmul(valid_hidden, weights) + biases)
+    test_hidden = tf.nn.relu(tf.matmul(tf_test_dataset, hidden_weights) + hidden_biases)
+    test_prediction = tf.nn.softmax(tf.matmul(test_hidden, weights) + biases)
 
 num_steps = 3001
 
