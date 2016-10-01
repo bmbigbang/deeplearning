@@ -97,15 +97,18 @@ with graph.as_default():
   loss = tf.reduce_mean(
     tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels))
 
+  # introducing variable learning rate
+  global_step = tf.Variable(0)  # count the number of steps taken.
+  learning_rate = tf.train.exponential_decay(0.12, global_step, 150, 0.8)
   # Optimizer.
-  optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(loss)
+  optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss, global_step=global_step)
 
   # Predictions for the training, validation, and test data.
   train_prediction = tf.nn.softmax(logits)
   valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
   test_prediction = tf.nn.softmax(model(tf_test_dataset))
 
-  num_steps = 1001
+  num_steps = 3001
 
   with tf.Session(graph=graph) as session:
     tf.initialize_all_variables().run()
