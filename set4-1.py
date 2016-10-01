@@ -80,9 +80,11 @@ with graph.as_default():
   #tf.nn.max_pool()
   # Model.
   def model(data):
-    conv = tf.nn.conv2d(data, filter=layer1_weights, strides=[1, 2, 2, 1], padding='SAME')
+    conv = tf.nn.conv2d(data, filter=layer1_weights, strides=[1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
     hidden = tf.nn.relu(conv + layer1_biases)
-    conv = tf.nn.conv2d(hidden, filter=layer2_weights, strides=[1, 2, 2, 1], padding='SAME')
+    conv = tf.nn.conv2d(hidden, filter=layer2_weights, strides=[1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
     hidden = tf.nn.relu(conv + layer2_biases)
     shape = hidden.get_shape().as_list()
     reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
