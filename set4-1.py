@@ -92,14 +92,18 @@ with graph.as_default():
     return tf.matmul(hidden, layer4_weights) + layer4_biases
 
 
+  # dropout layer
+  keep_prob = tf.Variable(1.0)
+  hidden_layer_drop = tf.nn.dropout(model(tf_train_dataset), keep_prob)
+
   # Training computation.
-  logits = model(tf_train_dataset)
+  logits = hidden_layer_drop
   loss = tf.reduce_mean(
     tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels))
 
   # introducing variable learning rate
   global_step = tf.Variable(0)  # count the number of steps taken.
-  learning_rate = tf.train.exponential_decay(0.12, global_step, 150, 0.8)
+  learning_rate = tf.train.exponential_decay(0.1, global_step, 150, 0.9)
   # Optimizer.
   optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss, global_step=global_step)
 
