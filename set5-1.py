@@ -9,10 +9,12 @@ import os
 import random
 import tensorflow as tf
 import zipfile
+from itertools import compress
 from matplotlib import pylab
 from six.moves import range
 from six.moves.urllib.request import urlretrieve
 from sklearn.manifold import TSNE
+
 
 url = 'http://mattmahoney.net/dc/'
 
@@ -78,22 +80,19 @@ def generate_batch(batch_size, num_skips, skip_window):
   global data_index
   assert batch_size % num_skips == 0
   assert num_skips <= 2 * skip_window
-  batch = np.ndarray(shape=(batch_size), dtype=np.int32)
+  batch = np.ndarray(shape=(batch_size, num_skips), dtype=np.int32)
   labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
   span = 2 * skip_window + 1 # [ skip_window target skip_window ]
   buffer = collections.deque(maxlen=span)
   for _ in range(span):
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
-  for i in range(batch_size // num_skips):
-    target = skip_window  # target label at the center of the buffer
-    targets_to_avoid = [ skip_window ]
-    for j in range(num_skips):
-      while target in targets_to_avoid:
-        target = random.randint(0, span - 1)
-      targets_to_avoid.append(target)
-      batch[i * num_skips + j] = buffer[skip_window]
-      labels[i * num_skips + j, 0] = buffer[target]
+  for i in range(batch_size):
+    # new batch changes for CBOW
+    mask = [1] * span
+    mask[skip_window] = 0
+    batch[i, :]  = list(compress(buffer, mask)) # all surrounding words
+    labels[i, 0] = buffer[skip_window] # the word at the center
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
   return batch, labels
@@ -104,7 +103,7 @@ for num_skips, skip_window in [(2, 1), (4, 2)]:
     data_index = 0
     batch, labels = generate_batch(batch_size=8, num_skips=num_skips, skip_window=skip_window)
     print('\nwith num_skips = %d and skip_window = %d:' % (num_skips, skip_window))
-    print('    batch:', [reverse_dictionary[bi] for bi in batch])
+    print('    batch:', [reverse_dictionary[bi[0]] for bi in batch])
     print('    labels:', [reverse_dictionary[li] for li in labels.reshape(8)])
 
 # Train a skip-gram model.
@@ -124,7 +123,7 @@ graph = tf.Graph()
 
 with graph.as_default(), tf.device('/cpu:0'):
     # Input data.
-    train_dataset = tf.placeholder(tf.int32, shape=[batch_size])
+    train_dataset = tf.placeholder(tf.int32, shape=[batch_size, num_skips])
     train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
     valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
 
@@ -138,7 +137,9 @@ with graph.as_default(), tf.device('/cpu:0'):
 
     # Model.
     # Look up embeddings for inputs.
-    embed = tf.nn.embedding_lookup(embeddings, train_dataset)
+    embed = tf.zeros([batch_size, embedding_size])
+    for j in range(num_skips):
+        embed += tf.nn.embedding_lookup(embeddings, train_dataset[:, j])
     # Compute the softmax loss, using a sample of the negative labels each time.
     loss = tf.reduce_mean(
         tf.nn.sampled_softmax_loss(softmax_weights, softmax_biases, embed,
